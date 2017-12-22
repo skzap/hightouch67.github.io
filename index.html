@@ -185,13 +185,14 @@
     }
 
     function generateQualities(a, videoGateway) {
+      console.log(a, videoGateway)
       var qualities = []
       if (a.content.video480hash) {
         qualities.push({
           label: '480p',
           type: 'video/mp4',
           hash: a.content.video480hash,
-          src: videoGateway ? videoGateway+'/ipfs/'+a.content.video480hash : canonicalUrl(a.content.video480src)
+          src: videoGateway ? videoGateway+'/ipfs/'+a.content.video480hash : canonicalUrl(a.content.video480hash)
         })
       }
       qualities.push({
