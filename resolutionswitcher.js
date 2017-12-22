@@ -35,6 +35,15 @@
       }
     } );
     ResolutionMenuItem.prototype.handleClick = function(event){
+      findBestUrl(this.options_.src[0].hash, function(url) {
+        console.log(url)
+        for (let i = 0; i < qualities.length; i++) {
+          if (qualities[i].label !== this.options_.label) return
+          qualities[i].src = url
+        }
+        console.log(qualities)
+        player.updateSrc(qualities)
+      })
       MenuItem.prototype.handleClick.call(this,event);
       this.player_.currentResolution(this.options_.label);
     };

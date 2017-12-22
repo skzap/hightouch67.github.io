@@ -17,14 +17,15 @@
 <body style='margin:0'>
   <script>
     gateways = [
+      //"https://www.eternum.io",
+      "https://hardbin.com",
+      "https://ipfs.infura.io",
       "https://ipfs.io",
-      "https://dtube1.gateway.ipfsstore.it:8443",
-      "https://dtube2.gateway.ipfsstore.it:8443",
       "https://gateway.ipfs.io",
-      "https://earth.i.ipfs.io",
-      "https://gateway.ipfsstore.it:8443",
       "https://scrappy.i.ipfs.io",
-      "https://chappy.i.ipfs.io"
+      "https://chappy.i.ipfs.io",
+      "https://ipfs.work",
+      //"https://siderus.io",
     ]
     player = null
     itLoaded = false
@@ -42,32 +43,21 @@
         console.log(err)
         return
       }
-
       var a = JSON.parse(b.json_metadata).video;
-      if (!videoGateway) videoGateway = gatewayByHash(a.content.videohash)
-      if (!snapGateway) snapGateway = gatewayByHash(a.info.snaphash)
-      var qualities = []
 
-      if (a.content.video480hash) {
-        qualities.push({
-          label: '480p',
-          type: 'video/mp4',
-          src: linkByHash(a.content.video480hash)
+      var qualities = generateQualities(a, videoGateway)
+      createPlayer(canonicalUrl(a.info.snaphash), autoplay, nobranding, qualities)
+
+      // trying to find something that answers faster than the canonical gateway
+      if (!videoGateway)
+        findBestUrl(qualities[0].hash, function(url) {
+          for (let i = 0; i < qualities.length; i++) {
+            if (qualities[i].label !== qualities[0].label) break
+            qualities[i].src = url
+          }
+          player.updateSrc(qualities)
         })
-        qualities.push({
-          label: 'Source',
-          type: 'video/mp4',
-          src: linkByHash(a.content.videohash)
-        })
-        createPlayer(linkByHash(a.info.snaphash), autoplay, nobranding, qualities)
-      } else {
-        qualities.push({
-          label: 'Source',
-          type: 'video/mp4',
-          src: linkByHash(a.content.videohash)
-        })
-        createPlayer(linkByHash(a.info.snaphash), autoplay, nobranding, qualities)
-      }
+      
 
       // if there's a magnet link, start torrent in background
       if (a.content.magnet) {
@@ -152,10 +142,6 @@
         destination: "http://d.tube/#!/v/" + path.split("/")[0] + '/' + path.split("/")[1],
         destinationTarget: "_blank"
       })
-      //player.updateSrc(qualities)
-      player.on('resolutionchange', function () {
-        console.info('Source changed to %s', player.src())
-      })
     }
 
     function removePlayer() {
@@ -163,13 +149,58 @@
       return elem.parentNode.removeChild(elem);
     }
 
-    function gatewayByHash(ipfsHash) {
+    function canonicalGateway(ipfsHash) {
       var g = ipfsHash.charCodeAt(ipfsHash.length - 1) % gateways.length
       return gateways[g].split('://')[1]
     }
 
-    function linkByHash(ipfsHash) {
-      return 'https://' + gatewayByHash(ipfsHash) + '/ipfs/' + ipfsHash
+    function canonicalUrl(ipfsHash) {
+      return 'https://' + canonicalGateway(ipfsHash) + '/ipfs/' + ipfsHash
+    }
+
+    function findBestUrl(hash, cb) {
+      let isFirst = true;
+      gateways.forEach((gateway) => {
+        const url = gateway + '/ipfs/'+hash
+        const timeStart = new Date()
+        const request = new XMLHttpRequest();
+        request.open("HEAD", url, true);
+        request.onerror = function(e) {
+          console.log('Error: '+url)
+        }
+        request.onreadystatechange = function() {
+          if(request.readyState === request.HEADERS_RECEIVED) {
+            if (request.status === 200) {
+              const headers = request.getAllResponseHeaders()
+              //console.log(url, headers)
+              if (headers.includes("content-type: video") && isFirst) {
+                isFirst = false
+                cb(url)
+              }
+            }
+          }
+        }
+        request.send();
+      })
+    }
+
+    function generateQualities(a, videoGateway) {
+      var qualities = []
+      if (a.content.video480hash) {
+        qualities.push({
+          label: '480p',
+          type: 'video/mp4',
+          hash: a.content.video480hash,
+          src: videoGateway ? videoGateway+'/ipfs/'+a.content.video480hash : canonicalUrl(a.content.video480src)
+        })
+      }
+      qualities.push({
+        label: 'Source',
+        type: 'video/mp4',
+        hash: a.content.videohash,
+        src: videoGateway ? videoGateway+'/ipfs/'+a.content.videohash : canonicalUrl(a.content.videohash)
+      })
+      return qualities
     }
   </script>
 </body>
